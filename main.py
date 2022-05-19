@@ -1,3 +1,4 @@
+from typing import Tuple
 from dotenv import dotenv_values
 import requests
 from bs4 import BeautifulSoup
@@ -9,7 +10,20 @@ def get_html(url):
     html = res.text
     return html
 
-def get_setlist_info(artist: str, pos: int):
+def search_for_setlist(artist: str, pos: int = 1) -> Tuple[str, str, str]:
+    """
+        Searches for an artist setlist on setlist.fm
+
+        Args:
+            - artist (str): artist name to be searched
+            - pos (int): position on list returned from search
+
+        Returns:
+            Tuple[str, str, str]:
+                first element is the concert name,
+                second is the link to the setlist, and
+                third is the artist name on the setlist web page            
+    """
     artist = artist.replace(" ", "+")
 
     url = f"https://www.setlist.fm/search?query=artist:{artist}"
@@ -29,7 +43,7 @@ def get_setlist(artist: str):
     pos = 1
     while len(setlist) < 6:
         setlist = []
-        last_concert_title, last_concert_link, artist_name = get_setlist_info(artist, pos)
+        last_concert_title, last_concert_link, artist_name = search_for_setlist(artist, pos)
         if artist_name.lower() != artist.lower():
             pos += 1
             continue
