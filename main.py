@@ -125,15 +125,12 @@ if __name__ == "__main__":
 
     playlist_name = ""
     songs = []
-    songs_found = []
+    songs_found = {}
 
     for artist in ARTISTS:
         title, setlist = get_setlist_by_artist(artist)
         songs.extend(setlist)
         playlist_name += title + " \\ "
-
-        # add setlist songs to that playlist
-        song_ids = []
 
         for song in songs:
             print(f"Trying to find song: {song} from {artist}")
@@ -148,10 +145,9 @@ if __name__ == "__main__":
                 if current_song_name == formatted_song:
                     if any(c['name'].lower() == artist.lower()
                            for c in current_song['artists']):
-                        song_ids.append(current_song['id'])
-                        print(f"{song} was found")
-                        songs_found.append(song)
+                        songs_found[song] = current_song['id']
                         was_found = True
+                        print(f"{song} was found")
                         break
 
             # If song with the exact same name wasn't found,
@@ -161,14 +157,14 @@ if __name__ == "__main__":
                 first_song_artists = [artist['name'] for artist in first_song[0]['artists']]
                 first_song_name = (f"{first_song[0]['name']} from "
                                    f"{', '.join(first_song_artists)}")
-                songs_found.append(first_song_name)
+                songs_found[first_song_name] = first_song['id']
                 print(f"{song} from {artist} wasn't found. "
                       f"Instead, added {first_song_name}")
 
-    playlist_name = playlist_name[:-3]  # Remove the \ on the final of the string
+    playlist_name = playlist_name[:-3]  # Remove the " \ " on the final of the string
 
     playlist = sp.user_playlist_create(CURRENT_USER_ID, playlist_name)
 
-    sp.playlist_add_items(playlist['id'], song_ids)
+    sp.playlist_add_items(playlist['id'], songs_found.values())
     print(f"Created playlist {playlist_name} with songs:")
-    print('\n'.join([f"\t--{song}" for song in songs_found]))
+    print('\n'.join([f"\t--{song}" for song in songs_found.keys()]))
