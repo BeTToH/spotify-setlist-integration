@@ -108,7 +108,7 @@ def rmv_special_chars(string: str):
 
 
 if __name__ == "__main__":
-    ARTISTS = ['drake']
+    ARTISTS = ['lorde', 'arctic monkeys', 'interpol']
     SEARCH_LIMIT = 5
 
     # env vars
@@ -129,11 +129,9 @@ if __name__ == "__main__":
 
     for artist in ARTISTS:
         title, setlist = get_setlist_by_artist(artist)
-        songs.extend(setlist)
         playlist_name += title + " \\ "
 
-        for song in songs:
-            print(f"Trying to find song: {song} from {artist}")
+        for song in setlist:
             first_song = sp.search(q=f"{song} {artist}", limit=SEARCH_LIMIT)
             returned_songs = first_song['tracks']['items']
 
@@ -153,9 +151,9 @@ if __name__ == "__main__":
             # If song with the exact same name wasn't found,
             # gets the first one on spotify search
             if not was_found:
-                first_song = sp.search(q=f"{song} {artist}", limit=1)['tracks']['items']
-                first_song_artists = [artist['name'] for artist in first_song[0]['artists']]
-                first_song_name = (f"{first_song[0]['name']} from "
+                first_song = sp.search(q=f"{song} {artist}", limit=1)['tracks']['items'][0]
+                first_song_artists = [artist['name'] for artist in first_song['artists']]
+                first_song_name = (f"{first_song['name']} from "
                                    f"{', '.join(first_song_artists)}")
                 songs_found[first_song_name] = first_song['id']
                 print(f"{song} from {artist} wasn't found. "
