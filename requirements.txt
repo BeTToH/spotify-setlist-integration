@@ -2,3 +2,4 @@ python-dotenv
 beautifulsoup4
 spotipy
 requests
+ipinfo

@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 
 from spotipy import Spotify
 import spotipy.util as util
+import ipinfo
 
 
 def get_html(url: str):
@@ -64,6 +65,7 @@ def get_setlist_by_artist(artist: str) -> Tuple[str, list]:
                 tuple which the first element is the concert's title and
                 the second element is a list of songs - setlist.
     """
+    print(f"Searching for {artist} setlist...")
     pos = 1
     setlist = []
     while len(setlist) < 6:
@@ -106,22 +108,46 @@ def get_setlist(concert_url: str):
 
 
 def rmv_special_chars(string: str):
+    # TODO - add docstring
     return ''.join(e for e in string if e.isalnum())
 
 
+def filter_song_in_list(song_name: str, artist: str, songs: list) -> str:
+    # TODO - add docstring
+    for current_song in songs:
+        current_song_name = rmv_special_chars(current_song['name']).lower()
+        formatted_song = rmv_special_chars(song_name).lower()
+        if (current_song_name == formatted_song
+            and any(c['name'].lower() == artist.lower()
+                    for c in current_song['artists'])):
+            return current_song['id']
+    return None
+
+
+def get_user_country(ipinfo_token: str):
+    # TODO - add docstring
+    handler = ipinfo.getHandler(ipinfo_token)
+    match = handler.getDetails()
+    return match.details['country']
+
+
 def main(args):
-    ARTISTS = args.artists
-    SEARCH_LIMIT = 5
+    ARTISTS: list[str] = args.artists
+    SOURCE = str(args.source).lower()
+    SEARCH_LIMIT = 3
 
-    print(f"Creating playlist with the artists: {','.join(ARTISTS)}")
-
-    # env vars
     config = dotenv_values()
     CLIENT_ID = config["CLIENT_ID"]
     CLIENT_SECRET = config["CLIENT_SECRET"]
     REDIRECT_URI = config["REDIRECT_URI"]
-
     SCOPE = "user-library-read playlist-modify-private playlist-modify-public"
+    if SOURCE == 'spot':
+        IPINFO_TOKEN = config['IPINFO_TOKEN']
+        country = get_user_country(IPINFO_TOKEN)
+        print(f"User country: {country}")
+
+    print(f"Creating playlist with the artists: {','.join(ARTISTS)}")
+
     token = util.prompt_for_user_token(client_id=CLIENT_ID, client_secret=CLIENT_SECRET,
                                        redirect_uri=REDIRECT_URI, scope=SCOPE)
     sp = Spotify(token)
@@ -129,41 +155,50 @@ def main(args):
 
     playlist_name = ""
     songs_found = {}
-
+    # TODO - create functions to reduce main size
     for artist in ARTISTS:
-        title, setlist = get_setlist_by_artist(artist)
-        playlist_name += title + " \\ "
+        print(f"-- {artist.upper()} --")
+        if SOURCE == "spot":
+            artist_search = sp.search(q=artist, type='artist', limit=1)
+            artist = artist_search['artists']['items'][0]
+            artist_id = artist['id']
+            artist_top_tracks_search = sp.artist_top_tracks(artist_id, country)
+            artist_top_tracks = artist_top_tracks_search['tracks']
+            for track in artist_top_tracks:
+                songs_found[track['name']] = track['id']
+                print(f'"{track["name"]}" was found.')
+        else:
+            title, setlist = get_setlist_by_artist(artist)
+            for song_name in setlist:
+                song_log = ""
+                search = sp.search(q=f"{song_name} {artist}", limit=SEARCH_LIMIT)
+                returned_songs = search['tracks']['items']
 
-        for song in setlist:
-            first_song = sp.search(q=f"{song} {artist}", limit=SEARCH_LIMIT)
-            returned_songs = first_song['tracks']['items']
+                # Try to find song with the exact same name
+                song_id = filter_song_in_list(song_name, artist, returned_songs)
+                song_log = f'"{song_name}" was found.'
 
-            # Try to find song with the exact same name
-            was_found = False
-            for current_song in returned_songs:
-                current_song_name = rmv_special_chars(current_song['name']).lower()
-                formatted_song = rmv_special_chars(song).lower()
-                if current_song_name == formatted_song:
-                    if any(c['name'].lower() == artist.lower()
-                           for c in current_song['artists']):
-                        songs_found[song] = current_song['id']
-                        was_found = True
-                        print(f"{song} was found")
-                        break
+                # If song with the exact same name wasn't found,
+                # gets the first one on spotify search
+                if not song_id:
+                    search = sp.search(q=f"{song_id} {artist}", limit=1, type='track')
+                    song = search['tracks']['items'][0]
+                    song_artists = [artist['name'] for artist in song['artists']]
+                    song_name = f"{song['name']} from {', '.join(song_artists)}"
 
-            # If song with the exact same name wasn't found,
-            # gets the first one on spotify search
-            if not was_found:
-                first_song = sp.search(q=f"{song} {artist}", limit=1)['tracks']['items'][0]
-                first_song_artists = [artist['name'] for artist in first_song['artists']]
-                first_song_name = (f"{first_song['name']} from "
-                                   f"{', '.join(first_song_artists)}")
-                songs_found[first_song_name] = first_song['id']
-                print(f"{song} from {artist} wasn't found. "
-                      f"Instead, added {first_song_name}")
+                    if not songs_found.get(song_name):
+                        song_id = song['id']
+                        song_log = (f'"{song_name}" from {artist} wasn\'t found. '
+                                    f'Instead, added {song_name}.')
 
-    # TODO - remove duplicates of the 'songs_found'
-    playlist_name = playlist_name[:-3]  # Remove the " \ " on the final of the string
+                songs_found[song_name] = song_id
+                print(song_log)
+        print("")
+
+    if args.playlist_name:
+        playlist_name = args.playlist_name
+    else:
+        playlist_name = playlist_name[:-3]  # Remove the " \ " on the final of the string
 
     playlist = sp.user_playlist_create(CURRENT_USER_ID, playlist_name)
 
@@ -174,6 +209,13 @@ def main(args):
 
 if __name__ == "__main__":
     argparse = ArgumentParser()
-    artists = argparse.add_argument(
+    argparse.add_argument(
         'artists', nargs="*", type=str, help="The artists to be included in the playlist")
+    argparse.add_argument('-p', '--playlist_name', type=str, default=None,
+                          help="Custom name for the playlist.")
+    argparse.add_argument('-s', '--source', type=str, default="spot",
+                          help="Source of the playlist. Use 'setlist' to create it based "
+                               "on the most recent concert setlist - from setlist.fm. "
+                               "Or 'spot' to get the top 10 tracks on Spotify. The default "
+                               "value is 'spot'.")
     main(argparse.parse_args())
