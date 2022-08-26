@@ -169,14 +169,14 @@ def main(args):
                 print(f'"{track["name"]}" was found.')
         else:
             title, setlist = get_setlist_by_artist(artist)
-            for song_name in setlist:
+            for song_desc in setlist:
                 song_log = ""
-                search = sp.search(q=f"{song_name} {artist}", limit=SEARCH_LIMIT)
+                search = sp.search(q=f"{song_desc} {artist}", limit=SEARCH_LIMIT)
                 returned_songs = search['tracks']['items']
 
                 # Try to find song with the exact same name
-                song_id = filter_song_in_list(song_name, artist, returned_songs)
-                song_log = f'"{song_name}" was found.'
+                song_id = filter_song_in_list(song_desc, artist, returned_songs)
+                song_log = f'"{song_desc}" was found.'
 
                 # If song with the exact same name wasn't found,
                 # gets the first one on spotify search
@@ -184,15 +184,16 @@ def main(args):
                     search = sp.search(q=f"{song_id} {artist}", limit=1, type='track')
                     song = search['tracks']['items'][0]
                     song_artists = [artist['name'] for artist in song['artists']]
-                    song_name = f"{song['name']} from {', '.join(song_artists)}"
+                    song_name = song['name']
+                    song_desc = f"{song_name} from {', '.join(song_artists)}"
 
-                    if not songs_found.get(song_name):
-                        song_id = song['id']
-                        song_log = (f'"{song_name}" from {artist} wasn\'t found. '
-                                    f'Instead, added {song_name}.')
+                    song_id = song['id']
+                    song_log = (f'"{song_name}" from {artist} wasn\'t found. '
+                                f'Instead, added {song_desc}.')
 
-                songs_found[song_name] = song_id
-                print(song_log)
+                if not songs_found.get(song_id):
+                    songs_found[song_id] = song_name
+                    print(song_log)
         print("")
 
     if args.playlist_name:
@@ -202,7 +203,7 @@ def main(args):
 
     playlist = sp.user_playlist_create(CURRENT_USER_ID, playlist_name)
 
-    sp.playlist_add_items(playlist['id'], songs_found.values())
+    sp.playlist_add_items(playlist['id'], songs_found.keys())
     print(f"Created playlist {playlist_name} with songs:")
     print('\n'.join([f"\t--{song}" for song in songs_found.keys()]))
 
