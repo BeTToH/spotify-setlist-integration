@@ -42,7 +42,7 @@ def main(args):
             artist_top_tracks_search = sp.artist_top_tracks(artist_id, country)
             artist_top_tracks = artist_top_tracks_search['tracks']
             for track in artist_top_tracks:
-                songs_found[track['name']] = track['id']
+                songs_found[track['id']] = track['name']
                 print(f'"{track["name"]}" was found.')
         else:
             title, setlist = get_setlist_by_artist(artist)
@@ -75,6 +75,8 @@ def main(args):
 
     if args.playlist_name:
         playlist_name = args.playlist_name
+    elif not playlist_name:
+        playlist_name = ' \ '.join([artist.capitalize() for artist in ARTISTS])
     else:
         playlist_name = playlist_name[:-3]  # Remove the " \ " on the final of the string
 
@@ -82,7 +84,7 @@ def main(args):
 
     sp.playlist_add_items(playlist['id'], songs_found.keys())
     print(f"Created playlist {playlist_name} with songs:")
-    print('\n'.join([f"\t--{song}" for song in songs_found.keys()]))
+    print('\n'.join([f"\t--{song}" for song in songs_found.values()]))
 
 
 if __name__ == "__main__":
