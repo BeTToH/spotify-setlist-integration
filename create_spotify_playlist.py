@@ -33,7 +33,7 @@ def main(args):
     playlist_name = ""
     songs_found = {}
     # TODO - create functions to reduce main size
-    for artist in ARTISTS:
+    for index, artist in enumerate(ARTISTS):
         print(f"-- {artist.upper()} --")
         if SOURCE == "spot":
             artist_search = sp.search(q=artist, type='artist', limit=1)
@@ -45,7 +45,8 @@ def main(args):
                 songs_found[track['id']] = track['name']
                 print(f'"{track["name"]}" was found.')
         else:
-            title, setlist = get_setlist_by_artist(artist)
+            title, setlist, artist = get_setlist_by_artist(artist)
+            ARTISTS[index] = artist
             for song_desc in setlist:
                 song_log = ""
                 search = sp.search(q=f"{song_desc} {artist}", limit=SEARCH_LIMIT)
@@ -54,11 +55,11 @@ def main(args):
                 # Try to find song with the exact same name
                 song_id = filter_song_in_list(song_desc, artist, returned_songs)
                 song_log = f'"{song_desc}" was found.'
-
+                song_name = song_desc
                 # If song with the exact same name wasn't found,
                 # gets the first one on spotify search
                 if not song_id:
-                    search = sp.search(q=f"{song_id} {artist}", limit=1, type='track')
+                    search = sp.search(q=f"{song_name} {artist}", limit=1, type='track')
                     song = search['tracks']['items'][0]
                     song_artists = [artist['name'] for artist in song['artists']]
                     song_name = song['name']
@@ -66,7 +67,7 @@ def main(args):
 
                     song_id = song['id']
                     song_log = (f'"{song_name}" from {artist} wasn\'t found. '
-                                f'Instead, added {song_desc}.')
+                                f'Instead, added "{song_desc}".')
 
                 if not songs_found.get(song_id):
                     songs_found[song_id] = song_name
@@ -76,7 +77,7 @@ def main(args):
     if args.playlist_name:
         playlist_name = args.playlist_name
     elif not playlist_name:
-        playlist_name = ' \ '.join([artist.capitalize() for artist in ARTISTS])
+        playlist_name = ' \\ '.join([artist.capitalize() for artist in ARTISTS])
     else:
         playlist_name = playlist_name[:-3]  # Remove the " \ " on the final of the string
 

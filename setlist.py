@@ -37,7 +37,7 @@ def search_for_setlist(artist: str, pos: int = 1) -> Tuple[str, str, str]:
     url = f"https://www.setlist.fm/search?query=artist:{artist}"
     html = get_html(url)
 
-    search_page = BeautifulSoup(html)
+    search_page = BeautifulSoup(html, features="html.parser")
     div_setlist_preview = search_page.find_all('div', {'class': 'setlistPreview'})[pos-1]
     div_concerts = div_setlist_preview.find_all('div', recursive=False)[1]
     last_concert = div_concerts.find_all('a')[0]
@@ -61,7 +61,7 @@ def get_setlist_by_url(concert_url: str):
     try:
         setlist = []
         setlist_page_html = get_html(concert_url)
-        setlist_page = BeautifulSoup(setlist_page_html)
+        setlist_page = BeautifulSoup(setlist_page_html, features="html.parser")
         setlist_div = setlist_page.find_all('div', {'class': 'setlistList'})[0]
         setlist_html = setlist_div.find_all('li', {'class': 'setlistParts song'})
         for li in setlist_html:
@@ -95,10 +95,18 @@ def get_setlist_by_artist(artist: str, songs_min: int = 6) -> Tuple[str, list]:
     while len(setlist) < songs_min:
         concert_title, concert_link, artist_name = search_for_setlist(artist, pos)
         if artist_name.lower() != artist.lower():
-            pos += 1
-            continue
+            correct_artist = ''
+            while correct_artist != 'y' and correct_artist != 'n':
+                correct_artist = input(
+                    f"Did you mean {artist_name} - instead of {artist}? (y/n)").lower()
+
+            if correct_artist == 'n':
+                pos += 1
+                continue
+            else:
+                artist = artist_name
         concert_link = "https://www.setlist.fm/" + concert_link
         setlist = get_setlist_by_url(concert_link)
         pos += 1
 
-    return concert_title, setlist
+    return concert_title, setlist, artist_name
